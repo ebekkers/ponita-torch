@@ -198,7 +198,7 @@ if __name__ == "__main__":
     # ------------------------ Input arguments
     
     # Run parameters
-    parser.add_argument('--epochs', type=int, default=50)
+    parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--batch_size', type=int, default=96)
     parser.add_argument('--lr', type=float, default=5e-4)
     parser.add_argument('--weight_decay', type=float, default=1e-10)

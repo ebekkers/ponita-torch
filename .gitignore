@@ -1,0 +1,4 @@
+datasets/qm9
+datasets/mnist
+logs
+__pycache__/

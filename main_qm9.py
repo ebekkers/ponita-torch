@@ -157,7 +157,7 @@ def main(args):
     pl.seed_everything(42)
 
     # Load the data
-    datasets = {split: QM9Dataset(split=split, target=args.target) for split in ['train', 'val', 'test']}
+    datasets = {split: QM9Dataset(split=split, target=args.target, root=args.root) for split in ['train', 'val', 'test']}
     dataloaders = {
         split: DataLoader(dataset, batch_size=args.batch_size, shuffle=(split == 'train'), num_workers=args.num_workers, pin_memory=True, collate_fn=collate_fn)
         for split, dataset in datasets.items()}

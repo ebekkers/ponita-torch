@@ -23,7 +23,7 @@ class QM9Dataset(Dataset):
     TARGETS = ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'U0', 'U', 'H', 'G', 'Cv', 'U0_atom', 'U_atom', 'H_atom', 'G_atom', 'A', 'B', 'C']
     UNCHARACTERIZED_URL = 'https://ndownloader.figshare.com/files/3195404'
 
-    def __init__(self, root='./datasets/qm9_dataset', sdf_file='gdb9.sdf', csv_file='gdb9.sdf.csv', target=None, split=None, use_charges=False):
+    def __init__(self, root='./datasets/qm9', sdf_file='gdb9.sdf', csv_file='gdb9.sdf.csv', target=None, split=None, use_charges=False):
         self.root = root
         self.sdf_file = os.path.join(root, sdf_file)
         self.csv_file = os.path.join(root, csv_file)
