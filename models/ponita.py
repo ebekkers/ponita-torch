@@ -52,35 +52,9 @@ class GridGenerator(nn.Module):
         x = torch.cos(angles)
         y = torch.sin(angles)
         return torch.stack((x, y), dim=1)
-    
-    # def generate_s2(self) -> torch.Tensor:
-        # grid = self.random_s2((self.n,), device=self.device)
-        # return self.repulse(grid)
-    
+       
     def generate_s2(self) -> torch.Tensor:
         return self.fibonacci_lattice(self.n, device=self.device)
-
-    def random_s2(self, shape: tuple[int, ...], device: torch.device) -> torch.Tensor:
-        x = torch.randn((*shape, 3), device=device)
-        return x / torch.linalg.norm(x, dim=-1, keepdim=True)
-
-    def repulse(self, grid: torch.Tensor) -> torch.Tensor:
-        grid = grid.clone().detach().requires_grad_(True)
-        optimizer = SGD([grid], lr=self.step_size)
-
-        for _ in range(self.steps):
-            optimizer.zero_grad()
-            dists = torch.cdist(grid, grid, p=2)
-            dists = torch.clamp(dists, min=1e-6)  # Avoid division by zero
-            energy = dists.pow(-2).sum()  # Simplified Coulomb energy calculation
-            energy.backward()
-            optimizer.step()
-
-            with torch.no_grad():
-                # Renormalize points back to the sphere after update
-                grid /= grid.norm(dim=-1, keepdim=True)
-
-        return grid.detach()
 
     def fibonacci_lattice(self, n: int, offset: float = 0.5, device: Optional[str] = None) -> Tensor:
         """
