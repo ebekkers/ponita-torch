@@ -53,9 +53,12 @@ class GridGenerator(nn.Module):
         y = torch.sin(angles)
         return torch.stack((x, y), dim=1)
     
+    # def generate_s2(self) -> torch.Tensor:
+        # grid = self.random_s2((self.n,), device=self.device)
+        # return self.repulse(grid)
+    
     def generate_s2(self) -> torch.Tensor:
-        grid = self.random_s2((self.n,), device=self.device)
-        return self.repulse(grid)
+        return self.fibonacci_lattice(self.n, device=self.device)
 
     def random_s2(self, shape: tuple[int, ...], device: torch.device) -> torch.Tensor:
         x = torch.randn((*shape, 3), device=device)
@@ -79,9 +82,7 @@ class GridGenerator(nn.Module):
 
         return grid.detach()
 
-    def fibonacci_lattice(
-        n: int, offset: float = 0.5, device: Optional[str] = None
-    ) -> Tensor:
+    def fibonacci_lattice(self, n: int, offset: float = 0.5, device: Optional[str] = None) -> Tensor:
         """
         Creating ~uniform grid of points on S2 using the fibonacci spiral algorithm.
 
@@ -238,36 +239,6 @@ class PolynomialFeatures(nn.Module):
         return torch.cat(polynomial_list, -1)
 
 
-
-def invariant_attr_r2s1_fiber_bundle(pos, ori_grid, edge_index, separable=False):
-    pos_send, pos_receive = pos[edge_index[0]], pos[edge_index[1]]                # [num_edges, 3]
-    rel_pos = (pos_send - pos_receive)                                            # [num_edges, 3]
-
-    # Convenient shape
-    rel_pos = rel_pos[:, None, :]                                                 # [num_edges, 1, 3]
-    ori_grid_a = ori_grid[None,:,:]                                               # [1, num_ori, 3]
-    ori_grid_b = ori_grid[:, None,:]                                              # [num_ori, 1, 3]
-
-    # Note ori_grid consists of tuples (ori[0], ori[1]) = (cos t, sin t)
-    # A transposed rotation (cos t, sin t \\ - sin t, cos t) is then 
-    # acchieved as (ori[0], ori[1] \\ -ori[1], ori[0]):
-    invariant1 = (rel_pos[...,0] * ori_grid_a[...,0] + rel_pos[...,1] * ori_grid_a[...,1]).unsqueeze(-1)
-    invariant2 = (- rel_pos[...,0] * ori_grid_a[...,1] + rel_pos[...,1] * ori_grid_a[...,0]).unsqueeze(-1)
-    invariant3 = (ori_grid_a * ori_grid_b).sum(dim=-1, keepdim=True)              # [num_ori, num_ori, 1]
-    
-    # Note: We could apply the acos = pi/2 - asin, which is differentiable at -1 and 1
-    # But found that this mapping is unnecessary as it is monotonic and mostly linear 
-    # anyway, except close to -1 and 1. Not applying the arccos worked just as well.
-    # invariant3 = torch.pi / 2 - torch.asin(invariant3.clamp(-1.,1.))
-    
-    if separable:
-        return torch.cat([invariant1, invariant2],dim=-1), invariant3             # [num_edges, num_ori, 2], [num_ori, num_ori, 1]
-    else:
-        invariant1 = invariant1[:,:,None,:].expand(-1,-1,ori_grid.shape[0],-1)    # [num_edges, num_ori, num_ori, 1]
-        invariant2 = invariant2[:,:,None,:].expand(-1,-1,ori_grid.shape[0],-1)    # [num_edges, num_ori, num_ori, 1]
-        invariant3 = invariant3[None,:,:,:].expand(invariant1.shape[0],-1,-1,-1)  # [num_edges, num_ori, num_ori, 1]
-        return torch.cat([invariant1, invariant2, invariant3],dim=-1)             # [num_edges, num_ori, num_ori, 3]
-    
 class Ponita(nn.Module):
     """Steerable E(3) equivariant (non-linear) convolutional network"""
 
@@ -322,32 +293,6 @@ class Ponita(nn.Module):
             else:
                 self.read_out_layers.append(None)
     
-    # def compute_invariants_2D(self, ori_grid, pos, edge_index):
-    #     pos_send, pos_receive = pos[edge_index[0]], pos[edge_index[1]]                # [num_edges, 3]
-    #     rel_pos = (pos_send - pos_receive)                                            # [num_edges, 3]
-    #     rel_pos = rel_pos[:, None, :]                                                 # [num_edges, 1, 3]
-    #     ori_grid_a = ori_grid[None,:,:]                                               # [1, num_ori, 3]
-    #     ori_grid_b = ori_grid[:, None,:]                                              # [num_ori, 1, 3]
-    #     invariant1 = (rel_pos[...,0] * ori_grid_a[...,0] + rel_pos[...,1] * ori_grid_a[...,1]).unsqueeze(-1)
-    #     invariant2 = (- rel_pos[...,0] * ori_grid_a[...,1] + rel_pos[...,1] * ori_grid_a[...,0]).unsqueeze(-1)
-    #     invariant3 = (ori_grid_a * ori_grid_b).sum(dim=-1, keepdim=True)              # [num_ori, num_ori, 1]
-    #     spatial_invariants = torch.cat([invariant1, invariant2], dim=-1)  # [num_edges, num_ori, 2]
-    #     orientation_invariants = invariant3  # [num_ori, num_ori, 1]
-    #     return spatial_invariants, orientation_invariants
-
-    # def compute_invariants_3D(self, ori_grid, pos, edge_index):
-    #     pos_send, pos_receive = pos[edge_index[0]], pos[edge_index[1]]  # [num_edges, 3]
-    #     rel_pos = pos_send - pos_receive  # [num_edges, 3]
-    #     rel_pos = rel_pos[:, None, :]  # [num_edges, 1, 3]
-    #     ori_grid_a = ori_grid[None, :, :]  # [1, num_ori, 3]
-    #     ori_grid_b = ori_grid[:, None, :]  # [num_ori, 1, 3]
-    #     invariant1 = (rel_pos * ori_grid_a).sum(dim=-1, keepdim=True)  # [num_edges, num_ori, 1]
-    #     invariant2 = (rel_pos - invariant1 * ori_grid_a).norm(dim=-1, keepdim=True)  # [num_edges, num_ori, 1]
-    #     invariant3 = (ori_grid_a * ori_grid_b).sum(dim=-1, keepdim=True)  # [num_ori, num_ori, 1]
-    #     spatial_invariants = torch.cat([invariant1, invariant2], dim=-1)  # [num_edges, num_ori, 2]
-    #     orientation_invariants = invariant3  # [num_ori, num_ori, 1]
-    #     return spatial_invariants, orientation_invariants
-    
     def compute_invariants(self, ori_grid, pos, edge_index):
         pos_send, pos_receive = pos[edge_index[0]], pos[edge_index[1]]                # [num_edges, 3]
         rel_pos = (pos_send - pos_receive)                                            # [num_edges, 3]
@@ -372,18 +317,6 @@ class Ponita(nn.Module):
     def forward(self, x, pos, edge_index, batch=None):
 
         ori_grid = self.ori_grid.type_as(pos)
-
-        # Compute the invariants
-        # pos_send, pos_receive = pos[edge_index[0]], pos[edge_index[1]]  # [num_edges, 3]
-        # rel_pos = pos_send - pos_receive  # [num_edges, 3]
-        # rel_pos = rel_pos[:, None, :]  # [num_edges, 1, 3]
-        # ori_grid_a = ori_grid[None, :, :]  # [1, num_ori, 3]
-        # ori_grid_b = ori_grid[:, None, :]  # [num_ori, 1, 3]
-        # invariant1 = (rel_pos * ori_grid_a).sum(dim=-1, keepdim=True)  # [num_edges, num_ori, 1]
-        # invariant2 = (rel_pos - invariant1 * ori_grid_a).norm(dim=-1, keepdim=True)  # [num_edges, num_ori, 1]
-        # invariant3 = (ori_grid_a * ori_grid_b).sum(dim=-1, keepdim=True)  # [num_ori, num_ori, 1]
-        # spatial_invariants = torch.cat([invariant1, invariant2], dim=-1)  # [num_edges, num_ori, 2]
-        # orientation_invariants = invariant3  # [num_ori, num_ori, 1]
         spatial_invariants, orientation_invariants = self.compute_invariants(ori_grid, pos, edge_index)
 
         # This is used to condition the generative models on noise levels (passed in the last channel of the input features)
@@ -401,9 +334,7 @@ class Ponita(nn.Module):
 
         # Interaction + readout layers
         readouts = []
-        for interaction_layer, readout_layer in zip(
-            self.interaction_layers, self.read_out_layers
-        ):
+        for interaction_layer, readout_layer in zip(self.interaction_layers, self.read_out_layers):
             x = interaction_layer(x, kernel_basis, fiber_kernel_basis, edge_index)
             if readout_layer is not None:
                 readouts.append(readout_layer(x))
